@@ -10,6 +10,11 @@ library(tidyverse)
 library(readxl)
 library(writexl)
 
+# Paquetes para el manejo de rutas y directorios
+library(here)
+library(fs)
+library(glue)
+
 # Paquetes para manejar datos panel
 library(plm)
 
@@ -31,43 +36,37 @@ library(car)
 # Resumen de resultados de regresión
 library(broom)
 
-# Rutas de trabajo
-output_path = "C:/Users/germa/Desktop/UNAL/Proyecto JAB/Experimentos/2023_Full/tests_asignaturas/bases_de_datos/output"
-matriculados_path = "C:/Users/germa/Desktop/UNAL/Proyecto JAB/Experimentos/2023_Full/tests_asignaturas/bases_de_datos/bases_regresiones/matriculados"
-puntaje_admision_path = "C:/Users/germa/Desktop/UNAL/Proyecto JAB/Experimentos/2023_Full/tests_asignaturas/bases_de_datos/puntaje_admision"
+
+# Rutas bases de datos
+bases_matriculados = dir_ls(glue("{here()}/bases_de_datos/bases_regresiones/matriculados/"), glob = "*.xlsx")
+bases_puntaje_admision = dir_ls(glue("{here()}/bases_de_datos/puntaje_admision/"), glob = "*.xlsx")
+bases_output = dir_ls(glue("{here()}/bases_de_datos/output/"), glob = "*.xlsx")
 
 # 0. Base de datos matriculados y puntaje admisión adicionales -------------------------
 
-setwd(matriculados_path)
-
-matricula_2023_1 = read_xlsx("Matriculados_fce_2023-1S.xlsx") %>% 
+matricula_2023_1 = read_xlsx(bases_matriculados[7]) %>% 
   select(CORREO, PAPA_PERIODO, PUNTAJE_ADMISION) %>% 
   rename(PAPA_PERIODO_2023_1 = PAPA_PERIODO,
          PUNTAJE_ADMISION_2023_1 = PUNTAJE_ADMISION)
 
-matricula_2023_2 = read_xlsx("Matriculados_fce_2023-2S.xlsx") %>% 
+matricula_2023_2 = read_xlsx(bases_matriculados[8]) %>% 
   select(CORREO, PAPA_PERIODO, PUNTAJE_ADMISION) %>% 
   rename(PAPA_PERIODO_2023_2 = PAPA_PERIODO,
          PUNTAJE_ADMISION_2023_2 = PUNTAJE_ADMISION)
 
-setwd(puntaje_admision_path)
-
-puntaje_admision = read_xlsx("estudiantes_sin_puntaje_admsion.xlsx") %>% 
+puntaje_admision = read_xlsx(bases_puntaje_admision[1]) %>% 
   mutate(puntaje_admision_adicionales = as.numeric(puntaje_admision_adicionales)) %>% 
   select(CORREO, puntaje_admision_adicionales)
 
 # 1. Procesamiento base de datos generada por Milena -------------------------
 
-setwd(output_path)
-
 # Base de datos generada por Milena + encuesta de percepción 
-# base_principal = read_xlsx("base_milena_con_encuesta_percepcion.xlsx") 
 
-base_virtuales = read_xlsx("base_principal_procesada-Milena1.xlsx", sheet = "Virtuales")
+base_virtuales = read_xlsx(bases_output[2], sheet = "Virtuales")
 
-base_presenciales = read_xlsx("base_principal_procesada-Milena1.xlsx", sheet = "Presenciales")
+base_presenciales = read_xlsx(bases_output[2], sheet = "Presenciales")
 
-base_placebos = read_xlsx("base_principal_procesada-Milena1.xlsx", sheet = "Placebos")
+base_placebos = read_xlsx(bases_output[2], sheet = "Placebos")
 
 base_principal = bind_rows(base_virtuales, base_presenciales, base_placebos)
 
