@@ -39,10 +39,17 @@ library(car)
 library(broom)
 
 
-# Rutas bases de datos
+# Root directory 
+root_directory = dir_ls(glue("{here()}"))
+
+# Rutas bases de datos (Archivos .xlsx)
 bases_matriculados = dir_ls(glue("{here()}/bases_de_datos/bases_regresiones/matriculados/"), glob = "*.xlsx")
 bases_puntaje_admision = dir_ls(glue("{here()}/bases_de_datos/puntaje_admision/"), glob = "*.xlsx")
 bases_output = dir_ls(glue("{here()}/bases_de_datos/output/"), glob = "*.xlsx")
+
+# resultados directory
+resultados_directory = root_directory[grepl("resultados", root_directory)]
+
 
 # 0. Base de datos matriculados y puntaje admisión adicionales -------------------------
 
@@ -155,7 +162,8 @@ base_limpia = base_principal %>%
 ## Generar las variables de efectos fijos para la estimación de efectos fijos 
 base_limpia = base_limpia %>% 
   mutate(fecha_pruebas = as.factor(str_trim(str_remove(`Comenzado el_prueba1`, " \\d{2}:\\d{2}"))),
-         semestre_ingreso = as.factor(CONVOCATORIA))
+         semestre_ingreso = as.factor(CONVOCATORIA)) %>% 
+  mutate(Matriculas_numeric= as.numeric(MATRICULAS))
 
 # Transformación de la base de datos a formato de datos panel 
 base_limpia_panel = base_limpia %>% 
@@ -275,102 +283,81 @@ pooled_sd(placebos, prueba, `Calificación/10.00_prueba2`)
 
 # 4. Regresiones --------------------------------------------------
 
-# 4.0 Fórmulas ----
-
-formula_reg1 = calificacion_pruebas ~ EX2 + AV + PL + EX2 * AV + EX2 * PL
-formula_reg2 = calificacion_pruebas ~ EX2 + AV + PL + EX2 * AV + EX2 * PL + prueba
-formula_reg3 = calificacion_pruebas ~ EX2 + AV + PL + EX2 * AV + EX2 * PL + prueba + PBM  
-formula_reg4 = calificacion_pruebas ~ EX2 + AV + PL + EX2 * AV + EX2 * PL + prueba + PBM  + minutos_prueba + PUNTAJE_ADMISION_FINAL_FINAL
-
-# 4.1 Fixed effects (fixest) incluyendo dummies individuales (tipo1) ----
+# 4.1 Fixed effects (fixest) models ----
 
 # Regresion 1
-fe1_tipo1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) | fecha_pruebas + semestre_ingreso, 
+fe1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) | fecha_pruebas + semestre_ingreso, 
                   data = base_limpia_panel, 
                   panel.id = c("CORREO", "periodos_pruebas"),
-                  cluster = ~prueba); summary(fe1_tipo1)
+                  cluster = ~prueba); summary(fe1)
 
 # Regresion 2
-fe2_tipo1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso, 
+fe2 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso, 
       data = base_limpia_panel, 
       panel.id = c("CORREO", "periodos_pruebas"),
-      cluster = ~prueba); summary(fe2_tipo1)
+      cluster = ~prueba); summary(fe2)
 
 # Regresion 3
-fe3_tipo1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso, 
+fe3 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso, 
       data = base_limpia_panel, 
       panel.id = c("CORREO", "periodos_pruebas"),
-      cluster = ~prueba); summary(fe3_tipo1)
+      cluster = ~prueba); summary(fe3)
 
 # Regresion 4
-fe4_tipo1 =feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + prueba | fecha_pruebas + semestre_ingreso, 
-      data = base_limpia_panel, 
-      panel.id = c("CORREO", "periodos_pruebas")); summary(fe4_tipo1)
+fe4 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso, 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(fe4)
 
-# Tabla de estimaciones usando modelsummary
+# Regresion 5
+fe5 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso, 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(fe5)
 
+# Regresion 6
+fe6 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso, 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(fe6)
 
-# 4.2 Fixed effects (fixest) solo dummies interaccion (tipo2) ----
+# Regresion 7
+fe7 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso, 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(fe7)
 
-# Regresion 1
-fe1_tipo2 =feols(calificacion_pruebas ~ I(EX2 * AV) + I(EX2 * PL) | fecha_pruebas + semestre_ingreso, 
-      data = base_limpia_panel, 
-      panel.id = c("CORREO", "periodos_pruebas"),
-      cluster = ~prueba); summary(fe1_tipo2)
+# Regresion otra
+# fe4_tipo1 =feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + prueba | fecha_pruebas + semestre_ingreso, 
+#       data = base_limpia_panel, 
+#       panel.id = c("CORREO", "periodos_pruebas")); summary(fe4_tipo1)
 
-# Regresion 2
-fe2_tipo2= feols(calificacion_pruebas ~ I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso, 
-      data = base_limpia_panel, 
-      panel.id = c("CORREO", "periodos_pruebas"),
-      cluster = ~prueba); summary(fe2_tipo2)
-
-# Regresion 3
-fe3_tipo2 = feols(calificacion_pruebas ~ I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso, 
-      data = base_limpia_panel, 
-      panel.id = c("CORREO", "periodos_pruebas"),
-      cluster = ~prueba); summary(fe3_tipo2)
-
-# Regresion 4
-fe4_tipo2 = feols(calificacion_pruebas ~ I(EX2 * AV) + I(EX2 * PL)+  minutos_prueba + PBM  + PUNTAJE_ADMISION_FINAL_FINAL + prueba | fecha_pruebas + semestre_ingreso, 
-      data = base_limpia_panel, 
-      panel.id = c("CORREO", "periodos_pruebas")); summary(fe4_tipo2)
-
-# 4.3 Tabla de estimaciones ----
+# 4.2 Exportación de la Tabla de regresiones ----
 
 ## Usando "texreg"
-
-### Rergresiones tipo 1
 texreg(
-  list(fe1_tipo1, fe2_tipo1, fe3_tipo1),
-  file = "regresiones_efectos_fijos_tipo1.tex",
-  caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación tipo 1",
-  label = "tab:regresiones_efectos_fijos_tipo1",
+  list(fe1, fe2, fe3, fe4, fe5, fe6, fe7),
+  file = file.path(resultados_directory, "regresiones_efectos_fijos.tex"),
+  caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación",
+  label = "tab:regresiones_efectos_fijos",
   digits = 3,  
-  custom.model.names = c("(1)", "(2)", "(3)"), 
-  custom.coef.names = c("Prueba 2 (T)", "Virtual (V)", "Placebo (P)", "Prueba 2 (T) * Virtual (V)", "Prueba 2 (T) * Placebo (P)", "Minutos prueba", "PBM", "Puntaje de admisión"),
+  custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"), 
+  custom.coef.map = list("EX2" =  "Prueba 2 (T)", 
+                      "AV" = "Virtual (V)", 
+                      "PL" = "Placebo (P)", 
+                      "I(EX2 * AV)" = "Prueba 2 (T) * Virtual (V)", 
+                      "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
+                      "minutos_prueba" = "Minutos prueba", 
+                      "PBM" = "PBM", 
+                      "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
+                      "SEXOM" = "Sexo", 
+                      "PAPA_PERIODO_FINAL" = "Promedio académico"),
   stars = c(0.01, 0.05, 0.1),
   include.adjrs = FALSE,  
   include.aic = FALSE,  
   include.bic = FALSE,  
   use.packages = FALSE  
 )
-
-
-### Rergresiones tipo 2
-texreg(
-  list(fe1_tipo2, fe2_tipo2, fe3_tipo2),
-  file = "regresiones_efectos_fijos_tipo2.tex",
-  caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación tipo 2",
-  label = "tab:regresiones_efectos_fijos_tipo2",
-  digits = 3,  
-  custom.model.names = c("(1)", "(2)", "(3)"), 
-  custom.coef.names = c("Prueba 2 (T) * Virtual (V)", "Prueba 2 (T) * Placebo (P)", "Minutos prueba", "PBM", "Puntaje de admisión"),
-  stars = c(0.01, 0.05, 0.1),
-  include.adjrs = FALSE,  
-  include.aic = FALSE,  
-  include.bic = FALSE,  
-  use.packages = FALSE  
-)  
 
 ## Usando "modelsummary"
 
@@ -385,3 +372,33 @@ texreg(
 #   stars = TRUE, 
 #   title = "Efecto del cambio en la modalidad de ensenanza-aprendizaje: resultados de estimacion"
 # )
+
+# 5. Pruebas de hipótesis lineales ----
+
+# Pruebas de hipótesis
+
+hyp_EX2_AV_EX2 = "I(EX2 * AV) + EX2 = 0"
+
+# 5.1 Pruebas de hipótesis lineales (adecuación del placebo) para los modelos de efectos fijos ----
+
+## Regresión fixed effects 1
+linearHypothesis(fe1, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 2
+linearHypothesis(fe2, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 3
+linearHypothesis(fe3, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 4
+linearHypothesis(fe4, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 5
+linearHypothesis(fe5, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 6
+linearHypothesis(fe6, hyp_EX2_AV_EX2)
+
+## Regresión fixed effects 7
+linearHypothesis(fe7, hyp_EX2_AV_EX2)
+
