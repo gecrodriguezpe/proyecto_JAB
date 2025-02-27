@@ -163,7 +163,9 @@ base_limpia = base_principal %>%
 base_limpia = base_limpia %>% 
   mutate(fecha_pruebas = as.factor(str_trim(str_remove(`Comenzado el_prueba1`, " \\d{2}:\\d{2}"))),
          semestre_ingreso = as.factor(CONVOCATORIA)) %>% 
-  mutate(Matriculas_numeric= as.numeric(MATRICULAS))
+  mutate(Matriculas_numeric= as.numeric(MATRICULAS)) %>% 
+  mutate(mes_nacimiento = str_extract(FECHA_NACIMIENTO, "-\\d{2}-") %>%  str_replace_all("-", "") %>%  as.numeric())  %>% 
+  mutate(semestre_nacimiento = ifelse(mes_nacimiento %in% 7:12, 1, 0))
 
 # Transformación de la base de datos a formato de datos panel 
 base_limpia_panel = base_limpia %>% 
@@ -184,7 +186,8 @@ base_limpia_panel = base_limpia_panel %>%
   mutate(AV = ifelse(Periodo_agregado == "virtual", 1, 0),
          AP = ifelse(Periodo_agregado == "presencial", 1, 0),
          PL = ifelse(Periodo_agregado == "placebos", 1, 0),
-         EX2 = ifelse(periodos_pruebas == 2, 1, 0))
+         EX2 = ifelse(periodos_pruebas == 2, 1, 0),
+         INST = ifelse(Periodo_agregado == "placebos", 0, 1))
 
 # Agregar variables adicionales relacionadas con los tests
 
@@ -283,235 +286,232 @@ pooled_sd(placebos, prueba, `Calificación/10.00_prueba2`)
 
 # 3.3 Regresiones para el cálculo de los errores estándar usando la metodología de Chetty (tread_prod = Virtuales (AV)) ----
 
-# # Nota: Se calculan los errores estándar usando la metodología de Chetty. "Equivalencia" de tratamientos:
-# ## treat_prod = Virtuales (AV)
-# ## treat_store = Placebos (PL)
-# ## treat_time = Dummy para la prueba 2/test 2 (EX2)
-# 
-# # Variables de interacción: 
-# ##  i1 = I(AV * EX2) (treat_products * treat_time)
-# ##  i2 = I(AV * PL) (treat_products * treat_store)
-# ##  i3 = I(PL * EX2) (treat_store * treat_time)
-# ##  TREATMENT= I(AV * PL * EX2)  (treat_products * treat_store * treat_time)
-# 
-# # Presenciales
-# 
-# # 3.3.1 Instruidos
-# 
-# # Pre
-# inst1 = feols(calificacion_pruebas ~ AV, 
-#             data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(PL == 0), 
-#             panel.id = c("CORREO", "periodos_pruebas"),
-#             cluster = ~prueba); summary(inst1)
-# 
-# # Post
-# inst2 = feols(calificacion_pruebas ~ AV, 
-#               data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(PL == 0), 
-#               panel.id = c("CORREO", "periodos_pruebas"),
-#               cluster = ~prueba); summary(inst2)
-# 
-# 
-# # Diferencia de tiempo para presenciales
-# ins_diff_time_pres = feols(calificacion_pruebas ~ EX2, 
-#               data = base_limpia_panel %>%  filter(AV == 0) %>% filter(PL == 0), 
-#               panel.id = c("CORREO", "periodos_pruebas"),
-#               cluster = ~prueba); summary(ins_diff_time_pres)
-# 
-# # Diferencia de tiempo para virtuales
-# ins_diff_time_virt = feols(calificacion_pruebas ~ I(AV * EX2) + AV , 
-#                        data = base_limpia_panel  %>% filter(PL == 0), 
-#                        panel.id = c("CORREO", "periodos_pruebas"),
-#                        cluster = ~prueba); summary(ins_diff_time_virt)
-# 
-# # 3.3.2 Placebos
-# 
-# # Pre
-# placebos1 = feols(calificacion_pruebas ~ AV, 
-#               data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(PL == 1), 
-#               panel.id = c("CORREO", "periodos_pruebas"),
-#               cluster = ~prueba); summary(placebos1)
-# 
-# # Post
-# placebos2 = feols(calificacion_pruebas ~ AV, 
-#               data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(PL == 1), 
-#               panel.id = c("CORREO", "periodos_pruebas"),
-#               cluster = ~prueba); summary(placebos2)
-# 
-# 
-# # Diferencia de tiempo para presenciales
-# placebos_diff_time_pres = feols(calificacion_pruebas ~ EX2, 
-#                             data = base_limpia_panel %>%  filter(AV == 0) %>% filter(PL == 1), 
-#                             panel.id = c("CORREO", "periodos_pruebas"),
-#                             cluster = ~prueba); summary(placebos_diff_time_pres)
-# 
-# # Diferencia de tiempo para virtuales
-# placebos_diff_time_virt = feols(calificacion_pruebas ~ I(AV * EX2) + AV , 
-#                             data = base_limpia_panel %>% filter(PL == 1), 
-#                             panel.id = c("CORREO", "periodos_pruebas"),
-#                             cluster = ~prueba); summary(placebos_diff_time_virt)
-# 
-# # Virtuales
-# 
-# virt_inst1 = feols(calificacion_pruebas ~ 1 , 
-#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 0) %>%  filter(EX2 == 0), 
-#                                 panel.id = c("CORREO", "periodos_pruebas"),
-#                                 cluster = ~prueba); summary(virt_inst1)
-# 
-# 
-# virt_inst2 = feols(calificacion_pruebas ~ 1 , 
-#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 0) %>%  filter(EX2 == 1), 
-#                                 panel.id = c("CORREO", "periodos_pruebas"),
-#                                 cluster = ~prueba); summary(virt_inst2)
-# 
-# 
-# virt_placebo1 = feols(calificacion_pruebas ~ 1 , 
-#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 1) %>%  filter(EX2 == 0), 
-#                                 panel.id = c("CORREO", "periodos_pruebas"),
-#                                 cluster = ~prueba); summary(virt_placebo1)
-# 
-# 
-# virt_placebo2 = feols(calificacion_pruebas ~ 1 , 
-#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 1) %>%  filter(EX2 == 1), 
-#                                 panel.id = c("CORREO", "periodos_pruebas"),
-#                                 cluster = ~prueba); summary(virt_placebo2)
-# 
-# # Segundas diferencias
-# segunda_diferencia1 = feols(calificacion_pruebas ~ I(AV * EX2) + AV + EX2, 
-#                       data = base_limpia_panel %>%  filter(PL == 0), 
-#                       panel.id = c("CORREO", "periodos_pruebas"),
-#                       cluster = ~prueba); summary(segunda_diferencia1)
-# 
-# segunda_diferencia2 = feols(calificacion_pruebas ~ I(AV * EX2) + AV + EX2, 
-#                             data = base_limpia_panel %>%  filter(PL == 1), 
-#                             panel.id = c("CORREO", "periodos_pruebas"),
-#                             cluster = ~prueba); summary(segunda_diferencia2)
-# 
-# 
-# # Triple diferencia  
-# triple_diferencia = feols(calificacion_pruebas ~ I(AV * PL * EX2) + AV + PL + EX2 + I(AV * EX2) + I(AV * PL) + I(PL * EX2) , 
-#                             data = base_limpia_panel, 
-#                             panel.id = c("CORREO", "periodos_pruebas"),
-#                             cluster = ~prueba); summary(triple_diferencia)
-
-# 3.4 Regresiones para el cálculo de los errores estándar usando la metodología de Chetty (tread_prod = Placebos (PL)) ----
-
 # Nota: Se calculan los errores estándar usando la metodología de Chetty. "Equivalencia" de tratamientos:
-## treat_prod = Placebos (PL)
-## treat_store = Virtuales (AV)
+## treat_prod = Virtuales (AV)
+## treat_store = Placebos (PL)
 ## treat_time = Dummy para la prueba 2/test 2 (EX2)
 
-# Variables de interacción: 
-##  i1 = I(PL * EX2) (treat_products * treat_time)
-##  i2 = I(PL * AV) (treat_products * treat_store)
-##  i3 = I(AV * EX2) (treat_store * treat_time)
-##  TREATMENT= I(PL * AV * EX2) (treat_products * treat_store * treat_time)
+# Variables de interacción:
+##  i1 = I(AV * EX2) (treat_products * treat_time)
+##  i2 = I(AV * PL) (treat_products * treat_store)
+##  i3 = I(PL * EX2) (treat_store * treat_time)
+##  TREATMENT= I(AV * PL * EX2)  (treat_products * treat_store * treat_time)
 
-# Instruidos
+# Presenciales
 
-# 3.3.1 Virtuales (AV = 1, panel de arriba)
-
-# Pre
-virt1 = feols(calificacion_pruebas ~ PL, 
-              data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(AV == 1), 
-              panel.id = c("CORREO", "periodos_pruebas"),
-              cluster = ~prueba); summary(virt1)
-
-# Post
-virt2 = feols(calificacion_pruebas ~ PL, 
-              data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(AV == 1), 
-              panel.id = c("CORREO", "periodos_pruebas"),
-              cluster = ~prueba); summary(virt2)
-
-
-# Diferencia de tiempo para instruidos
-virt_diff_time_inst = feols(calificacion_pruebas ~ EX2, 
-                           data = base_limpia_panel %>%  filter(PL == 0) %>% filter(AV == 1), 
-                           panel.id = c("CORREO", "periodos_pruebas"),
-                           cluster = ~prueba); summary(virt_diff_time_inst)
-
-# Diferencia de tiempo para placebos
-virt_diff_time_placebo = feols(calificacion_pruebas ~ I(PL * EX2) + PL , 
-                           data = base_limpia_panel  %>% filter(AV == 1), 
-                           panel.id = c("CORREO", "periodos_pruebas"),
-                           cluster = ~prueba); summary(virt_diff_time_placebo)
-
-# 3.3.2 Presenciales (AV = 0, panel de abajo)
+# 3.3.1 Instruidos
 
 # Pre
-pres1 = feols(calificacion_pruebas ~ PL, 
-                  data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(AV == 0), 
-                  panel.id = c("CORREO", "periodos_pruebas"),
-                  cluster = ~prueba); summary(pres1)
+inst1 = feols(calificacion_pruebas ~ AV,
+            data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(PL == 0),
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(inst1)
 
 # Post
-pres2 = feols(calificacion_pruebas ~ PL, 
-                  data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(AV == 0), 
-                  panel.id = c("CORREO", "periodos_pruebas"),
-                  cluster = ~prueba); summary(pres2)
+inst2 = feols(calificacion_pruebas ~ AV,
+              data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(PL == 0),
+              panel.id = c("CORREO", "periodos_pruebas"),
+              cluster = ~prueba); summary(inst2)
 
 
-# Diferencia de tiempo para instruidos
-pres_diff_time_inst = feols(calificacion_pruebas ~ EX2, 
-                                data = base_limpia_panel %>%  filter(PL == 0) %>% filter(AV == 0), 
-                                panel.id = c("CORREO", "periodos_pruebas"),
-                                cluster = ~prueba); summary(pres_diff_time_inst)
+# Diferencia de tiempo para presenciales
+ins_diff_time_pres = feols(calificacion_pruebas ~ EX2,
+              data = base_limpia_panel %>%  filter(AV == 0) %>% filter(PL == 0),
+              panel.id = c("CORREO", "periodos_pruebas"),
+              cluster = ~prueba); summary(ins_diff_time_pres)
 
-# Diferencia de tiempo para placebos
-pres_diff_time_placebo = feols(calificacion_pruebas ~ I(PL * EX2) + PL , 
-                                data = base_limpia_panel %>% filter(AV == 0), 
-                                panel.id = c("CORREO", "periodos_pruebas"),
-                                cluster = ~prueba); summary(pres_diff_time_placebo)
+# Diferencia de tiempo para virtuales
+ins_diff_time_virt = feols(calificacion_pruebas ~ I(AV * EX2) + AV ,
+                       data = base_limpia_panel  %>% filter(PL == 0),
+                       panel.id = c("CORREO", "periodos_pruebas"),
+                       cluster = ~prueba); summary(ins_diff_time_virt)
 
-# Placebos (Columna 2, artículo de Chetty)
+# 3.3.2 Placebos
 
-# Nota: No se pueden generar!
+# Pre
+placebos1 = feols(calificacion_pruebas ~ AV,
+              data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(PL == 1),
+              panel.id = c("CORREO", "periodos_pruebas"),
+              cluster = ~prueba); summary(placebos1)
 
-# placebos_virt1 = feols(calificacion_pruebas ~ 1 , 
-#                    data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 1) %>%  filter(EX2 == 0), 
-#                    panel.id = c("CORREO", "periodos_pruebas"),
-#                    cluster = ~prueba); summary(placebos_virt1)
-
-
-# placebos_virt2 = feols(calificacion_pruebas ~ 1 , 
-#                    data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 1) %>%  filter(EX2 == 1), 
-#                    panel.id = c("CORREO", "periodos_pruebas"),
-#                    cluster = ~prueba); summary(placebos_virt2)
-
-
-placebos_pres1 = feols(calificacion_pruebas ~ 1 , 
-                      data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 0) %>%  filter(EX2 == 0), 
-                      panel.id = c("CORREO", "periodos_pruebas"),
-                      cluster = ~prueba); summary(placebos_pres1)
+# Post
+placebos2 = feols(calificacion_pruebas ~ AV,
+              data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(PL == 1),
+              panel.id = c("CORREO", "periodos_pruebas"),
+              cluster = ~prueba); summary(placebos2)
 
 
-placebos_pres2 = feols(calificacion_pruebas ~ 1 , 
-                      data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 0) %>%  filter(EX2 == 1), 
-                      panel.id = c("CORREO", "periodos_pruebas"),
-                      cluster = ~prueba); summary(placebos_pres2)
-
-# Segundas diferencias 
-
-# (AV = 1)
-segunda_diferencia1 = feols(calificacion_pruebas ~ I(PL * EX2) + PL + EX2, 
-                            data = base_limpia_panel %>%  filter(AV == 1), 
+# Diferencia de tiempo para presenciales
+placebos_diff_time_pres = feols(calificacion_pruebas ~ EX2,
+                            data = base_limpia_panel %>%  filter(AV == 0) %>% filter(PL == 1),
                             panel.id = c("CORREO", "periodos_pruebas"),
-                            cluster = ~prueba); summary(segunda_diferencia1)
+                            cluster = ~prueba); summary(placebos_diff_time_pres)
 
-# (AV = 0)
-segunda_diferencia2 = feols(calificacion_pruebas ~ I(PL * EX2) + PL + EX2, 
-                            data = base_limpia_panel %>%  filter(AV == 0), 
+# Diferencia de tiempo para virtuales
+placebos_diff_time_virt = feols(calificacion_pruebas ~ I(AV * EX2) + AV ,
+                            data = base_limpia_panel %>% filter(PL == 1),
+                            panel.id = c("CORREO", "periodos_pruebas"),
+                            cluster = ~prueba); summary(placebos_diff_time_virt)
+
+# Virtuales
+
+virt_inst1 = feols(calificacion_pruebas ~ 1 ,
+                                data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 0) %>%  filter(EX2 == 0),
+                                panel.id = c("CORREO", "periodos_pruebas"),
+                                cluster = ~prueba); summary(virt_inst1)
+
+
+virt_inst2 = feols(calificacion_pruebas ~ 1 ,
+                                data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 0) %>%  filter(EX2 == 1),
+                                panel.id = c("CORREO", "periodos_pruebas"),
+                                cluster = ~prueba); summary(virt_inst2)
+
+
+# virt_placebo1 = feols(calificacion_pruebas ~ 1 ,
+#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 1) %>%  filter(EX2 == 0),
+#                                 panel.id = c("CORREO", "periodos_pruebas"),
+#                                 cluster = ~prueba); summary(virt_placebo1)
+
+
+# virt_placebo2 = feols(calificacion_pruebas ~ 1 ,
+#                                 data = base_limpia_panel %>% filter(AV == 1) %>% filter(PL == 1) %>%  filter(EX2 == 1),
+#                                 panel.id = c("CORREO", "periodos_pruebas"),
+#                                 cluster = ~prueba); summary(virt_placebo2)
+
+# Segundas diferencias
+segunda_diferencia1 = feols(calificacion_pruebas ~ I(AV * EX2) + AV + EX2,
+                      data = base_limpia_panel %>%  filter(PL == 0),
+                      panel.id = c("CORREO", "periodos_pruebas"),
+                      cluster = ~prueba); summary(segunda_diferencia1)
+
+segunda_diferencia2 = feols(calificacion_pruebas ~ I(AV * EX2) + AV + EX2,
+                            data = base_limpia_panel %>%  filter(PL == 1),
                             panel.id = c("CORREO", "periodos_pruebas"),
                             cluster = ~prueba); summary(segunda_diferencia2)
 
 
-# Triple diferencia  
-triple_diferencia = feols(calificacion_pruebas ~ I(PL * AV * EX2) + PL + EX2 + AV + I(PL * EX2) + I(PL * AV) + I(AV * EX2) , 
-                          data = base_limpia_panel, 
-                          panel.id = c("CORREO", "periodos_pruebas"),
-                          cluster = ~prueba); summary(triple_diferencia)
+# Triple diferencia
+triple_diferencia = feols(calificacion_pruebas ~ I(AV * PL * EX2) + AV + PL + EX2 + I(AV * EX2) + I(AV * PL) + I(PL * EX2) ,
+                            data = base_limpia_panel,
+                            panel.id = c("CORREO", "periodos_pruebas"),
+                            cluster = ~prueba); summary(triple_diferencia)
 
+# 3.4 Regresiones para el cálculo de los errores estándar usando la metodología de Chetty (tread_prod = Placebos (PL)) ----
 
-
+# # Nota: Se calculan los errores estándar usando la metodología de Chetty. "Equivalencia" de tratamientos:
+# ## treat_prod = Placebos (PL)
+# ## treat_store = Virtuales (AV)
+# ## treat_time = Dummy para la prueba 2/test 2 (EX2)
+# 
+# # Variables de interacción:
+# ##  i1 = I(PL * EX2) (treat_products * treat_time)
+# ##  i2 = I(PL * AV) (treat_products * treat_store)
+# ##  i3 = I(AV * EX2) (treat_store * treat_time)
+# ##  TREATMENT= I(PL * AV * EX2) (treat_products * treat_store * treat_time)
+# 
+# # Instruidos
+# 
+# # 3.3.1 Virtuales (AV = 1, panel de arriba)
+# 
+# # Pre
+# virt1 = feols(calificacion_pruebas ~ INST,
+#               data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(AV == 1),
+#               panel.id = c("CORREO", "periodos_pruebas"),
+#               cluster = ~prueba); summary(virt1)
+# 
+# # Post
+# virt2 = feols(calificacion_pruebas ~ INST,
+#               data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(AV == 1),
+#               panel.id = c("CORREO", "periodos_pruebas"),
+#               cluster = ~prueba); summary(virt2)
+# 
+# 
+# # Diferencia de tiempo para instruidos
+# virt_diff_time_inst = feols(calificacion_pruebas ~ EX2,
+#                            data = base_limpia_panel %>%  filter(INST == 0) %>% filter(AV == 1),
+#                            panel.id = c("CORREO", "periodos_pruebas"),
+#                            cluster = ~prueba); summary(virt_diff_time_inst)
+# 
+# # Diferencia de tiempo para placebos
+# virt_diff_time_placebo = feols(calificacion_pruebas ~ I(INST * EX2) + INST ,
+#                            data = base_limpia_panel  %>% filter(AV == 1),
+#                            panel.id = c("CORREO", "periodos_pruebas"),
+#                            cluster = ~prueba); summary(virt_diff_time_placebo)
+# 
+# # 3.3.2 Presenciales (AV = 0, panel de abajo)
+# 
+# # Pre
+# pres1 = feols(calificacion_pruebas ~ INST,
+#                   data = base_limpia_panel %>%  filter(EX2 == 0) %>% filter(AV == 0),
+#                   panel.id = c("CORREO", "periodos_pruebas"),
+#                   cluster = ~prueba); summary(pres1)
+# 
+# # Post
+# pres2 = feols(calificacion_pruebas ~ INST,
+#                   data = base_limpia_panel %>%  filter(EX2 == 1) %>% filter(AV == 0),
+#                   panel.id = c("CORREO", "periodos_pruebas"),
+#                   cluster = ~prueba); summary(pres2)
+# 
+# 
+# # Diferencia de tiempo para instruidos
+# pres_diff_time_inst = feols(calificacion_pruebas ~ EX2,
+#                                 data = base_limpia_panel %>%  filter(INST == 0) %>% filter(AV == 0),
+#                                 panel.id = c("CORREO", "periodos_pruebas"),
+#                                 cluster = ~prueba); summary(pres_diff_time_inst)
+# 
+# # Diferencia de tiempo para placebos
+# pres_diff_time_placebo = feols(calificacion_pruebas ~ I(INST * EX2) + INST ,
+#                                 data = base_limpia_panel %>% filter(AV == 0),
+#                                 panel.id = c("CORREO", "periodos_pruebas"),
+#                                 cluster = ~prueba); summary(pres_diff_time_placebo)
+# 
+# # Placebos (Columna 2, artículo de Chetty)
+# 
+# # Nota: No se pueden generar!
+# 
+# # placebos_virt1 = feols(calificacion_pruebas ~ 1 ,
+# #                    data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 1) %>%  filter(EX2 == 0),
+# #                    panel.id = c("CORREO", "periodos_pruebas"),
+# #                    cluster = ~prueba); summary(placebos_virt1)
+# 
+# 
+# # placebos_virt2 = feols(calificacion_pruebas ~ 1 ,
+# #                    data = base_limpia_panel %>% filter(PL == 1) %>% filter(AV == 1) %>%  filter(EX2 == 1),
+# #                    panel.id = c("CORREO", "periodos_pruebas"),
+# #                    cluster = ~prueba); summary(placebos_virt2)
+# 
+# 
+# placebos_pres1 = feols(calificacion_pruebas ~ 1 ,
+#                       data = base_limpia_panel %>% filter(INST == 1) %>% filter(AV == 0) %>%  filter(EX2 == 0),
+#                       panel.id = c("CORREO", "periodos_pruebas"),
+#                       cluster = ~prueba); summary(placebos_pres1)
+# 
+# 
+# placebos_pres2 = feols(calificacion_pruebas ~ 1 ,
+#                       data = base_limpia_panel %>% filter(INST == 1) %>% filter(AV == 0) %>%  filter(EX2 == 1),
+#                       panel.id = c("CORREO", "periodos_pruebas"),
+#                       cluster = ~prueba); summary(placebos_pres2)
+# 
+# # Segundas diferencias
+# 
+# # (AV = 1)
+# segunda_diferencia1 = feols(calificacion_pruebas ~ I(INST * EX2) + INST + EX2,
+#                             data = base_limpia_panel %>%  filter(AV == 1),
+#                             panel.id = c("CORREO", "periodos_pruebas"),
+#                             cluster = ~prueba); summary(segunda_diferencia1)
+# 
+# # (AV = 0)
+# segunda_diferencia2 = feols(calificacion_pruebas ~ I(INST * EX2) + INST + EX2,
+#                             data = base_limpia_panel %>%  filter(AV == 0),
+#                             panel.id = c("CORREO", "periodos_pruebas"),
+#                             cluster = ~prueba); summary(segunda_diferencia2)
+# 
+# 
+# # Triple diferencia
+# triple_diferencia = feols(calificacion_pruebas ~ I(INST * AV * EX2) + INST + EX2 + AV + I(INST * EX2) + I(INST * AV) + I(AV * EX2) ,
+#                           data = base_limpia_panel,
+#                           panel.id = c("CORREO", "periodos_pruebas"),
+#                           cluster = ~prueba); summary(triple_diferencia)
 
 # 4. Regresiones --------------------------------------------------
 
@@ -637,3 +637,93 @@ linearHypothesis(fe6, hyp_EX2_AV_EX2)
 linearHypothesis(fe7, hyp_EX2_AV_EX2)
 
 # 6. Ejercicios de robustez ----
+
+# 6.1 Estimaciones por variable instrumental
+
+# Resumen estimaciones IV: 
+## Variable endógena: Virtualidad (AV): 
+## Instrumentos:  
+### Semestre de nacimiento 
+### Número de matrículas
+
+# 6.1 Variable Instrumental ----
+
+# 6.1.1 Instrumento: semestre  ----
+
+# Regresion variable instrumental "semestre" 1
+iv_reg_semestre_1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_1)
+
+# Regresion variable instrumental "semestre" 2
+iv_reg_semestre_2 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_2)
+
+# Regresion variable instrumental "semestre" 3
+iv_reg_semestre_3 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_3)
+
+# Regresion variable instrumental "semestre" 4
+iv_reg_semestre_4 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_4)
+
+# Regresion variable instrumental "semestre" 5
+iv_reg_semestre_5 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel,  
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_5)
+
+# Regresion variable instrumental "semestre" 6
+iv_reg_semestre_6 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_6)
+
+# Regresion variable instrumental "semestre" 7
+iv_reg_semestre_7 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(iv_reg_semestre_7)
+
+# Exportación resultados: Variable Instrumental
+
+# ## Usando "texreg"
+# texreg(
+#   list(iv_reg_semestre_1, iv_reg_semestre_2, iv_reg_semestre_3, iv_reg_semestre_4, iv_reg_semestre_5, iv_reg_semestre_6, iv_reg_semestre_7),
+#   file = file.path(resultados_directory, "regresiones_variable_instrumental_semestre_nacimiento.tex"),
+#   caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación (Variable instrumental 'Semestre Nacimiento')",
+#   label = "tab:regresiones_efectos_fijos",
+#   digits = 3,  
+#   custom.model.names = c("(IV 1)", "(IV 2)", "(IV 3)", "(IV 4)", "(IV 5)", "(IV 6)", "(IV 7)"), 
+#   custom.coef.map = list("EX2" =  "Prueba 2 (T)", 
+#                          "AV" = "Virtual (V)", 
+#                          "PL" = "Placebo (P)", 
+#                          "I(EX2 * AV)" = "Prueba 2 (T) * Virtual (V)", 
+#                          "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
+#                          "minutos_prueba" = "Minutos prueba", 
+#                          "PBM" = "PBM", 
+#                          "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
+#                          "SEXOM" = "Sexo", 
+#                          "PAPA_PERIODO_FINAL" = "Promedio académico",
+#                          "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Cuarta, Quinta y Sexta matrícula",
+#                          "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Septima, Octaba, Novena y Decima matrícula"),
+#   stars = c(0.01, 0.05, 0.1),
+#   include.adjrs = FALSE,  
+#   include.aic = FALSE,  
+#   include.bic = FALSE,  
+#   use.packages = FALSE  
+# )
+
+# 6.2 Randomización ----
+
+
+
+# 6.3 Permutación ----
+
