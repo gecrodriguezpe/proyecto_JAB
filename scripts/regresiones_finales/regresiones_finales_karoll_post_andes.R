@@ -38,6 +38,12 @@ library(car)
 # Resumen de resultados de regresión
 library(broom)
 
+# 
+source(glue("{here()}/scripts/regresiones_finales/randomization_test.R"))
+
+
+
+
 
 # Root directory 
 root_directory = dir_ls(glue("{here()}"))
@@ -186,8 +192,8 @@ base_limpia_panel = base_limpia_panel %>%
   mutate(AV = ifelse(Periodo_agregado == "virtual", 1, 0),
          AP = ifelse(Periodo_agregado == "presencial", 1, 0),
          PL = ifelse(Periodo_agregado == "placebos", 1, 0),
-         EX2 = ifelse(periodos_pruebas == 2, 1, 0),
-         INST = ifelse(Periodo_agregado == "placebos", 0, 1))
+         INST = ifelse(Periodo_agregado == "placebos", 0, 1),
+         EX2 = ifelse(periodos_pruebas == 2, 1, 0))
 
 # Agregar variables adicionales relacionadas con los tests
 
@@ -515,46 +521,56 @@ triple_diferencia = feols(calificacion_pruebas ~ I(AV * PL * EX2) + AV + PL + EX
 
 # 4. Regresiones --------------------------------------------------
 
+# 4.0 Fixed effects (fixest) formulas ----
+
+fe1_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) | fecha_pruebas + semestre_ingreso 
+fe2_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso 
+fe3_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso 
+fe4_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso
+fe5_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso 
+fe6_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso
+fe7_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso
+
 # 4.1 Fixed effects (fixest) models ----
 
 # Regresion 1
-fe1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) | fecha_pruebas + semestre_ingreso, 
-                  data = base_limpia_panel, 
-                  panel.id = c("CORREO", "periodos_pruebas"),
-                  cluster = ~prueba); summary(fe1)
+fe1 = feols(fe1_formula, 
+            data = base_limpia_panel, 
+            panel.id = c("CORREO", "periodos_pruebas"),
+            cluster = ~prueba); summary(fe1)
 
 # Regresion 2
-fe2 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso, 
+fe2 = feols(fe2_formula, 
       data = base_limpia_panel, 
       panel.id = c("CORREO", "periodos_pruebas"),
       cluster = ~prueba); summary(fe2)
 
 # Regresion 3
-fe3 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso, 
+fe3 = feols(fe3_formula, 
       data = base_limpia_panel, 
       panel.id = c("CORREO", "periodos_pruebas"),
       cluster = ~prueba); summary(fe3)
 
 # Regresion 4
-fe4 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso, 
+fe4 = feols(fe4_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(fe4)
 
 # Regresion 5
-fe5 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso, 
+fe5 = feols(fe5_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(fe5)
 
 # Regresion 6
-fe6 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso, 
+fe6 = feols(fe6_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(fe6)
 
 # Regresion 7
-fe7 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * AV) + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso, 
+fe7 = feols(fe7_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(fe7)
@@ -648,82 +664,111 @@ linearHypothesis(fe7, hyp_EX2_AV_EX2)
 
 # 6.1 Variable Instrumental ----
 
-# 6.1.1 Instrumento: semestre  ----
+# 6.1.0 Estimaciones IV (formulas) ----
+
+iv_reg_semestre_1_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_2_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_3_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento) 
+iv_reg_semestre_4_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_5_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_6_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_7_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+
+# 6.1.1 Estimaciones IV (Instrumento: semestre) ----
 
 # Regresion variable instrumental "semestre" 1
-iv_reg_semestre_1 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_1 = feols(iv_reg_semestre_1_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_1)
 
 # Regresion variable instrumental "semestre" 2
-iv_reg_semestre_2 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_2 = feols(iv_reg_semestre_2_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_2)
 
 # Regresion variable instrumental "semestre" 3
-iv_reg_semestre_3 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_3 = feols(iv_reg_semestre_3_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_3)
 
 # Regresion variable instrumental "semestre" 4
-iv_reg_semestre_4 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_4 = feols(iv_reg_semestre_4_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_4)
 
 # Regresion variable instrumental "semestre" 5
-iv_reg_semestre_5 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_5 = feols(iv_reg_semestre_5_formula, 
             data = base_limpia_panel,  
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_5)
 
 # Regresion variable instrumental "semestre" 6
-iv_reg_semestre_6 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_6 = feols(iv_reg_semestre_6_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_6)
 
 # Regresion variable instrumental "semestre" 7
-iv_reg_semestre_7 = feols(calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * semestre_nacimiento), 
+iv_reg_semestre_7 = feols(iv_reg_semestre_7_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_7)
 
 # Exportación resultados: Variable Instrumental
 
-# ## Usando "texreg"
-# texreg(
-#   list(iv_reg_semestre_1, iv_reg_semestre_2, iv_reg_semestre_3, iv_reg_semestre_4, iv_reg_semestre_5, iv_reg_semestre_6, iv_reg_semestre_7),
-#   file = file.path(resultados_directory, "regresiones_variable_instrumental_semestre_nacimiento.tex"),
-#   caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación (Variable instrumental 'Semestre Nacimiento')",
-#   label = "tab:regresiones_efectos_fijos",
-#   digits = 3,  
-#   custom.model.names = c("(IV 1)", "(IV 2)", "(IV 3)", "(IV 4)", "(IV 5)", "(IV 6)", "(IV 7)"), 
-#   custom.coef.map = list("EX2" =  "Prueba 2 (T)", 
-#                          "AV" = "Virtual (V)", 
-#                          "PL" = "Placebo (P)", 
-#                          "I(EX2 * AV)" = "Prueba 2 (T) * Virtual (V)", 
-#                          "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
-#                          "minutos_prueba" = "Minutos prueba", 
-#                          "PBM" = "PBM", 
-#                          "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
-#                          "SEXOM" = "Sexo", 
-#                          "PAPA_PERIODO_FINAL" = "Promedio académico",
-#                          "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Cuarta, Quinta y Sexta matrícula",
-#                          "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Septima, Octaba, Novena y Decima matrícula"),
-#   stars = c(0.01, 0.05, 0.1),
-#   include.adjrs = FALSE,  
-#   include.aic = FALSE,  
-#   include.bic = FALSE,  
-#   use.packages = FALSE  
-# )
+## Usando "texreg"
+texreg(
+  list(iv_reg_semestre_1, iv_reg_semestre_2, iv_reg_semestre_3, iv_reg_semestre_4, iv_reg_semestre_5, iv_reg_semestre_6, iv_reg_semestre_7),
+  file = file.path(resultados_directory, "regresiones_variable_instrumental_semestre_nacimiento.tex"),
+  caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación (Variable instrumental 'Semestre Nacimiento')",
+  label = "tab:regresiones_efectos_fijos_IV",
+  digits = 3,
+  custom.model.names = c("(IV 1)", "(IV 2)", "(IV 3)", "(IV 4)", "(IV 5)", "(IV 6)", "(IV 7)"),
+  custom.coef.map = list("EX2" =  "Prueba 2 (T)",
+                         "AV" = "Virtual (V)",
+                         "PL" = "Placebo (P)",
+                         "fit_I(EX2 * AV)" = "(Prueba 2 (T) * Virtual (V)) estimada primera etapa",
+                         "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
+                         "minutos_prueba" = "Minutos prueba",
+                         "PBM" = "PBM",
+                         "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
+                         "SEXOM" = "Sexo",
+                         "PAPA_PERIODO_FINAL" = "Promedio académico",
+                         "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Cuarta, Quinta y Sexta matrícula",
+                         "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Septima, Octaba, Novena y Decima matrícula"),
+  stars = c(0.01, 0.05, 0.1),
+  include.adjrs = FALSE,
+  include.aic = FALSE,
+  include.bic = FALSE,
+  use.packages = FALSE
+)
 
 # 6.2 Randomización ----
 
+# Test de randomización para la regresion 1 de efectos fijos
+test_de_randomizacion(df_original = base_limpia, 
+                      formula_estimacion = fe1_formula,
+                      coef_interes = "I(EX2 * AV)",
+                      estimacion_original = fe1,
+                      sample_size = 500)
 
+# Test de randomización para la regresion 2 de efectos fijos
+suppressMessages(test_de_randomizacion(df_original = base_limpia, 
+                      formula_estimacion = fe6_formula,
+                      coef_interes = "I(EX2 * AV)",
+                      estimacion_original = fe6,
+                      sample_size = 500))
+
+# Test de randomización para la regresion 3 de efectos fijos
+test_de_randomizacion(df_original = base_limpia, 
+                      formula_estimacion = fe7_formula,
+                      coef_interes = "I(EX2 * AV)",
+                      estimacion_original = fe7,
+                      sample_size = 500)
 
 # 6.3 Permutación ----
 
