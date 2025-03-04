@@ -44,7 +44,6 @@ generacion_variable_sintetica = function(df){
   t_virtuales = grupos_experimento["virtual"] 
   t_presenciales =  grupos_experimento["presencial"]
   
-  
   # Variable sintética: Se va a llenar con el for loop, agregando grupos 
   var_sintetica = c()
   
@@ -89,45 +88,54 @@ generacion_variable_sintetica = function(df){
 
 }
 
-# 2. Función: "Construcción base datos panel" -------------------------------------
-
-#' Title
-#'
-#' @param df_pre_panel 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-# generacion_base_datos_panel = function(df_pre_panel){
-#  
-#   # Transformación de la base de datos a formato de datos panel 
-#   df_panel = df_pre_panel %>% 
-#     pivot_longer(cols = starts_with("Calificación/10.00_prueba"),
-#                  names_to = "periodos_pruebas",
-#                  values_to = "calificacion_pruebas") %>% 
-#     select(CORREO, periodos_pruebas, calificacion_pruebas, everything()) %>% 
-#     mutate(periodos_pruebas = str_replace(periodos_pruebas, "Calificación/10.00_prueba", ""))
-#   
-#   # Creción de las Dummies a partir de la "variable sintética" creada
-#   df_panel = df_panel %>%
-#     mutate(AV = ifelse(Periodo_agregado_sintetico == "virtual", 1, 0),
-#            AP = ifelse(Periodo_agregado_sintetico == "presencial", 1, 0),
-#            PL = ifelse(Periodo_agregado_sintetico == "placebos", 1, 0),
-#            INST = ifelse(Periodo_agregado_sintetico == "placebos", 0, 1),
-#            EX2 = ifelse(periodos_pruebas == 2, 1, 0))
-#   
-#   # Agregar variables adicionales relacionadas con los tests
-#   df_panel = df_panel %>% 
-#     mutate(Tiempo_requerido_prueba = ifelse(periodos_pruebas == 1, `Tiempo requerido_prueba1`, `Tiempo requerido_prueba2`),
-#            minutos_prueba = as.numeric(str_extract(`Tiempo_requerido_prueba`, "\\d+")),
-#            segundos_prueba = as.numeric(str_extract(str_remove(`Tiempo_requerido_prueba`, "\\d+ minutos "), "\\d+")),
-#            tiempo_total_prueba = minutos_prueba * 60 + segundos_prueba)
-#    
-#   return(df_panel)
-# }
-
 # 3. Función: "Histograma del coeficiente" --------------------------------
+
+
+
+graficacion_histograma = function(params_lst, 
+                                  p_value = NULL, 
+                                  x_label, 
+                                  y_label_p_value,
+                                  y_label_density,
+                                  bw = "nrd0", 
+                                  adjust = 1, 
+                                  kernel = "gaussian") {
+  
+  # Coeficientes estimados en el test de randomización
+  params = params_lst$parametros
+  
+  # Coeficiente original y 
+  coeficiente_original = as.numeric(params_lst$coefientes_originales$estimate)
+  
+  # Para determinar el p_value que va a estar en la gráfica 
+  if(is.null(p_value)){
+    p_value_original = as.numeric(params_lst$coefientes_originales$p.value)  
+  }else{
+    p_value_original = p_value
+  }
+  
+  # Generación de la gráfica con la densidad y el scatterplot
+  histograma = ggplot(params, aes(x = coef)) +
+    # Scatterplot: coef vs. p_value
+    geom_point(aes(y = p_value), color = "blue") +
+    geom_hline(yintercept = p_value_original, linetype = "dashed", color = "red") +  
+    geom_vline(xintercept = coeficiente_original, linetype = "dashed", color = "red") +   
+    # Kernel Density Estimation with parameterized bandwidth, adjust, and kernel
+    geom_density(aes(y = after_stat(density) * max(params$p_value)), 
+                 bw = bw, adjust = adjust, kernel = kernel) +
+    # Use a secondary axis for the density scale
+    scale_y_continuous(
+      name = y_label_p_value,
+      sec.axis = sec_axis(~ . / max(params$p_value), name = y_label_density)
+    ) +
+    labs(x = x_label) +
+    theme_light()  
+  
+  return(histograma)
+}
+
+
+
 
 #' Title
 #'
@@ -139,29 +147,74 @@ generacion_variable_sintetica = function(df){
 #' @export
 #'
 #' @examples
-graficacion_histograma = function(params, coeficiente_original, p_value_original){
+# graficacion_histograma = function(params_lst, coeficiente_original, p_value_original, x_label, y_label){
+# 
+#   # Coeficientes estimados en el test de randomización
+#   params = params_lst$parametros
+# 
+#   # Coeficiente original y p-value original
+#   coeficiente_original = as.numeric(params_lst$coefientes_originales$estimate)
+#   p_value_original = as.numeric(params_lst$coefientes_originales$p.value)
+# 
+#   # Generación de la gráfica con la densidad y el scatterplot
+#   histograma = ggplot(params, aes(x = coef)) +
+#     # Scatterplot: coef vs. p_value
+#     geom_point(aes(y = p_value), color = "blue") +
+#     geom_hline(yintercept = p_value_original, linetype = "dashed", color = "red") +
+#     geom_vline(xintercept = coeficiente_original, linetype = "dashed", color = "red")+
+#     # Kernel Density Estimation
+#     # Density plot: scale density to match the range of p_value
+#     geom_density(aes(y = ..density.. * max(params$p_value))) +
+#     # Use a secondary axis for the density scale
+#     scale_y_continuous(
+#       name = "p_value",
+#       sec.axis = sec_axis(~ . / max(params$p_value), name = "Density")
+#     ) +
+#     labs(x = x_label,
+#          y = y_label) +
+#     theme_light()
+# 
+#   return(histograma)
+# 
+# }
+
+
+# Coeficientes significativos test de permuación ------------------------------------------
+
+coef_signif_test_randomizacion = function(df, p_value_umbral, coef_negativo){
   
-  # Generación de la gráfica con la densidad y el scatterplot
-  histograma = ggplot(params, aes(x = coef)) +
-    # Scatterplot: coef vs. p_value
-    geom_point(aes(y = p_value), color = "blue") +
-    geom_hline(yintercept = p_value_original, linetype = "dashed", color = "red") +  
-    geom_vline(xintercept = coeficiente_original, linetype = "dashed", color = "red")+    
-    # Density plot: scale density to match the range of p_value
-    geom_density(aes(y = ..density.. * max(params$p_value))) +
-    # Use a secondary axis for the density scale
-    scale_y_continuous(
-      name = "p_value",
-      sec.axis = sec_axis(~ . / max(params$p_value), name = "Density")
-    ) +
-    theme_light()  
+  # Calcular el número de coeficientes significativos 
   
-  return(histograma)
+  if (coef_negativo){
+    
+    coef_sig = df %>%
+      filter(coef < 0) %>% 
+      filter(p_value < p_value_umbral) %>% 
+      nrow()  
+    
+    mensaje = glue("El número de coeficientes negativos significativos al {p_value_umbral} es: {coef_sig}")
+    
+  }else{
+    
+    coef_sig = df %>%
+      filter(coef > 0) %>% 
+      filter(p_value < p_value_umbral) %>% 
+      nrow()  
+    
+    mensaje = glue("El número de coeficientes positivos significativos al {p_value_umbral} es: {coef_sig}")
+    
+  }
   
+  print(mensaje)
 }
 
 
+
+
 # 4. "Función: Randomization test" ------------------------------------
+
+# TODO: Explorar la posibilidad de hacer bootstrapping en lugar de asumir una distribución específica
+# TODO: Revisar la sección de "bootstrapping" de "Sampling with R" en DataCamp para ello
 
 #' Title
 #'
@@ -175,7 +228,22 @@ graficacion_histograma = function(params, coeficiente_original, p_value_original
 #' @export
 #'
 #' @examples
-test_de_randomizacion = function(df_original, formula_estimacion, coef_interes, estimacion_original, sample_size){
+test_de_randomizacion = function(df_original, 
+                                 formula_estimacion, 
+                                 coef_interes, 
+                                 estimacion_original, 
+                                 sample_size, 
+                                 seed = NULL,
+                                 full_randomness = TRUE,
+                                 distro_synthetic_score = rnorm){
+  
+  # Especificar la semilla en caso tal de que el usuario haya asignado alguna semilla
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }  
+  
+  # Número de filas de la base de datos sobre las que se itera 
+  nrows = nrow(df_original)
   
   # Coeficiente de la variable de interés de la regresión original 
   original_coef_interest = tidy(estimacion_original) %>% filter(term == coef_interes)
@@ -192,6 +260,24 @@ test_de_randomizacion = function(df_original, formula_estimacion, coef_interes, 
     
     # 1. Generación de la variable sintética 
     df = generacion_variable_sintetica(df_original)
+    
+    # df que se genera si el usuario selecciona la opcion "full_randomness = TRUE"
+    if (full_randomness){
+      
+      # Media y desviación estándar de la primera etapa 
+      mean_prueba1 = mean(df$`Calificación/10.00_prueba1`) 
+      sd_prueba1 = sd(df$`Calificación/10.00_prueba1`) 
+      
+      # Media y desviación estándar de la segunda etapa 
+      mean_prueba2 = mean(df$`Calificación/10.00_prueba2`) 
+      sd_prueba2 = sd(df$`Calificación/10.00_prueba2`)       
+      
+      # Variable sintéticas
+      df = df %>% 
+        mutate(`Calificación/10.00_prueba1` = distro_synthetic_score(nrows, mean_prueba1, sd_prueba1),
+               `Calificación/10.00_prueba2` = distro_synthetic_score(nrows, mean_prueba2, sd_prueba2))
+      
+    }
     
     # 2. Construcción de la base de datos para la estimación 
     df_panel = generacion_base_datos_panel(df, Periodo_agregado_sintetico)
@@ -212,10 +298,17 @@ test_de_randomizacion = function(df_original, formula_estimacion, coef_interes, 
   }
   
   # Graficación test de randomización
-  grafica_test_randomizacion = graficacion_histograma(params, coeficiente_original, p_value_original)  
-  print(grafica_test_randomizacion)
+  # grafica_test_randomizacion = graficacion_histograma(params, 
+  #                                                     coeficiente_original, 
+  #                                                     p_value_original,
+  #                                                     x_label = "Coeficiente estimado", 
+  #                                                     y_label = "P-value")  
+  # print(grafica_test_randomizacion)
   
+  # Resultados del test
+  lst_resultados = list("parametros" = params, 
+                         "coefientes_originales" = original_coef_interest)
   
-  # return(params)  
+  return(lst_resultados)
   
 }

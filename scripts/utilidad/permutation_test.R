@@ -21,14 +21,20 @@ source(glue("{here()}/scripts/utilidad/util.R"))
 
 # Función de distribución acumulada (CDF) ---------------------------------
 
-graficacion_CDF = function(params, coeficiente_original){
+graficacion_CDF = function(params_lst, x_label, y_label){
+  
+    # Coeficientes estimados en el test de randomización
+    params = params_lst$parametros
+    
+    # Coeficiente original y p-value original 
+    coeficiente_original = as.numeric(params_lst$coefientes_originales$estimate)
   
     # Generación de la CDF empírica
     cdf = ggplot(params, aes(x = coef)) +     
       stat_ecdf(geom = "step", color = "blue") +
       geom_vline(xintercept = coeficiente_original, linetype = "dashed", color = "red") + 
-      # labs(x = "Coeficiente estimado",
-      #      y = "Función de distribución acumulada empírica") +
+      labs(x = x_label,
+           y = y_label) +
       theme_minimal()
   
   return(cdf)
@@ -37,7 +43,12 @@ graficacion_CDF = function(params, coeficiente_original){
 
 # 1. Función: "Generación de variable sintética" -----------------------------
 
-test_de_permutacion = function(df_original, formula_estimacion, coef_interes, estimacion_original){
+test_de_permutacion = function(df_original, formula_estimacion, coef_interes, estimacion_original, seed = NULL){
+  
+  # Especificar la semilla en caso tal de que el usuario haya asignado alguna semilla
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
   
   # Coeficiente de la variable de interés de la regresión original 
   original_coef_interest = tidy(estimacion_original) %>% filter(term == coef_interes)
@@ -102,18 +113,17 @@ test_de_permutacion = function(df_original, formula_estimacion, coef_interes, es
   }  
   
   # Graficación test de permutación
-  grafica_test_permutacion = graficacion_CDF(params, coeficiente_original)
-  print(grafica_test_permutacion)
+  # grafica_test_permutacion = graficacion_CDF(params, 
+  #                                            coeficiente_original, 
+  #                                            x_label = "Coeficiente estimado",
+  #                                            y_label = "Función de distribución acumulada empírica")
+  # print(grafica_test_permutacion)
   
-  # return(params)
+  # Resultados del test
+  lst_resultados = list("parametros" = params, 
+                         "coefientes_originales" = original_coef_interest)
+  
+  return(lst_resultados)
   
 }
   
-
-
-# Prueba de la función 
-
-# res_test = test_de_permutacion(df_original = base_limpia, 
-#                     formula_estimacion = fe1_formula, 
-#                     coef_interes = "I(EX2 * AV)", 
-#                     estimacion_original = fe1 )

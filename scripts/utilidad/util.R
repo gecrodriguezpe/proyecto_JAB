@@ -3,6 +3,9 @@
 # Funciones:
 ### generacion_base_datos_panel: Construcción base de datos panel
 
+
+# Generación base de datos panel ------------------------------------------
+
 #' Title
 #'
 #' @param df_pre_panel 
@@ -38,3 +41,4 @@ generacion_base_datos_panel = function(df_pre_panel, variable_de_interes){
   
   return(df_panel)
 }
+

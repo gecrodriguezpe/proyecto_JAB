@@ -3,7 +3,8 @@
 # 0. Preliminares ------------------------------------------------------------
 
 # Limipieza del entorno de trabajo 
-rm(list = ls())
+# rm(list = ls())
+
 
 # Paquetes de proposito general 
 library(tidyverse)
@@ -38,11 +39,10 @@ library(car)
 # Resumen de resultados de regresión
 library(broom)
 
-# 
-source(glue("{here()}/scripts/regresiones_finales/randomization_test.R"))
 
-
-
+# Modulos externos 
+source(glue("{here()}/scripts/utilidad/randomization_test.R")) # Para poder utilizar el test de randomización
+source(glue("{here()}/scripts/utilidad/permutation_test.R")) # Para poder utilizar el test de permutación
 
 
 # Root directory 
@@ -56,6 +56,8 @@ bases_output = dir_ls(glue("{here()}/bases_de_datos/output/"), glob = "*.xlsx")
 # resultados directory
 resultados_directory = root_directory[grepl("resultados", root_directory)]
 
+# figuras directories
+figuras_directory = root_directory[grepl("figuras", root_directory)]
 
 # 0. Base de datos matriculados y puntaje admisión adicionales -------------------------
 
@@ -590,18 +592,18 @@ texreg(
   label = "tab:regresiones_efectos_fijos",
   digits = 3,  
   custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"), 
-  custom.coef.map = list("EX2" =  "Prueba 2 (T)", 
-                      "AV" = "Virtual (V)", 
-                      "PL" = "Placebo (P)", 
-                      "I(EX2 * AV)" = "Prueba 2 (T) * Virtual (V)", 
-                      "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
-                      "minutos_prueba" = "Minutos prueba", 
+  custom.coef.map = list("EX2" =  "T", 
+                      "AV" = "V", 
+                      "PL" = "P", 
+                      "I(EX2 * AV)" = "T * V", 
+                      "I(EX2 * PL)" = "T * P",
+                      "minutos_prueba" = "Minutos", 
                       "PBM" = "PBM", 
                       "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
                       "SEXOM" = "Sexo", 
                       "PAPA_PERIODO_FINAL" = "Promedio académico",
-                      "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Cuarta, Quinta y Sexta matrícula",
-                      "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Septima, Octaba, Novena y Decima matrícula"),
+                      "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Entre 4 y 5 matrículas",
+                      "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Más de 7 matrículas"),
   stars = c(0.01, 0.05, 0.1),
   include.adjrs = FALSE,  
   include.aic = FALSE,  
@@ -666,53 +668,53 @@ linearHypothesis(fe7, hyp_EX2_AV_EX2)
 
 # 6.1.0 Estimaciones IV (formulas) ----
 
-iv_reg_semestre_1_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
-iv_reg_semestre_2_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
-iv_reg_semestre_3_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento) 
-iv_reg_semestre_4_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
-iv_reg_semestre_5_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
-iv_reg_semestre_6_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
-iv_reg_semestre_7_formula = calificacion_pruebas ~ EX2 + AV + PL + I(EX2 * PL) +  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_1_formula = calificacion_pruebas ~ 1 | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_2_formula = calificacion_pruebas ~  minutos_prueba | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_3_formula = calificacion_pruebas ~  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento) 
+iv_reg_semestre_4_formula = calificacion_pruebas ~  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_5_formula = calificacion_pruebas ~  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_6_formula = calificacion_pruebas ~  minutos_prueba + PBM + PUNTAJE_ADMISION_FINAL_FINAL + SEXO + PAPA_PERIODO_FINAL + Matriculas_recategorizado | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
+iv_reg_semestre_7_formula = calificacion_pruebas ~  PAPA_PERIODO_FINAL | fecha_pruebas + semestre_ingreso | I(EX2 * AV) ~ I(EX2 * mes_nacimiento)
 
-# 6.1.1 Estimaciones IV (Instrumento: semestre) ----
+# 6.1.1 Estimaciones IV (Instrumento: mes_nacimiento) ----
 
-# Regresion variable instrumental "semestre" 1
-iv_reg_semestre_1 = feols(iv_reg_semestre_1_formula, 
-            data = base_limpia_panel, 
+# Regresion variable instrumental "mes_nacimiento" 1
+iv_reg_semestre_1 = feols(iv_reg_semestre_1_formula,
+            data = base_limpia_panel,
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_1)
 
-# Regresion variable instrumental "semestre" 2
+# Regresion variable instrumental "mes_nacimiento" 2
 iv_reg_semestre_2 = feols(iv_reg_semestre_2_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_2)
 
-# Regresion variable instrumental "semestre" 3
+# Regresion variable instrumental "mes_nacimiento" 3
 iv_reg_semestre_3 = feols(iv_reg_semestre_3_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_3)
 
-# Regresion variable instrumental "semestre" 4
+# Regresion variable instrumental "mes_nacimiento" 4
 iv_reg_semestre_4 = feols(iv_reg_semestre_4_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_4)
 
-# Regresion variable instrumental "semestre" 5
+# Regresion variable instrumental "mes_nacimiento" 5
 iv_reg_semestre_5 = feols(iv_reg_semestre_5_formula, 
             data = base_limpia_panel,  
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_5)
 
-# Regresion variable instrumental "semestre" 6
+# Regresion variable instrumental "mes_nacimiento" 6
 iv_reg_semestre_6 = feols(iv_reg_semestre_6_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
             cluster = ~prueba); summary(iv_reg_semestre_6)
 
-# Regresion variable instrumental "semestre" 7
+# Regresion variable instrumental "mes_nacimiento" 7
 iv_reg_semestre_7 = feols(iv_reg_semestre_7_formula, 
             data = base_limpia_panel, 
             panel.id = c("CORREO", "periodos_pruebas"),
@@ -720,26 +722,26 @@ iv_reg_semestre_7 = feols(iv_reg_semestre_7_formula,
 
 # Exportación resultados: Variable Instrumental
 
-## Usando "texreg"
+# Usando "texreg"
 texreg(
   list(iv_reg_semestre_1, iv_reg_semestre_2, iv_reg_semestre_3, iv_reg_semestre_4, iv_reg_semestre_5, iv_reg_semestre_6, iv_reg_semestre_7),
-  file = file.path(resultados_directory, "regresiones_variable_instrumental_semestre_nacimiento.tex"),
+  file = file.path(resultados_directory, "regresiones_variable_instrumental_mes_nacimiento.tex"),
   caption = "Efecto del cambio en la modalidad de enseñanza-aprendizaje: resultados de estimación (Variable instrumental 'Semestre Nacimiento')",
   label = "tab:regresiones_efectos_fijos_IV",
   digits = 3,
   custom.model.names = c("(IV 1)", "(IV 2)", "(IV 3)", "(IV 4)", "(IV 5)", "(IV 6)", "(IV 7)"),
-  custom.coef.map = list("EX2" =  "Prueba 2 (T)",
-                         "AV" = "Virtual (V)",
-                         "PL" = "Placebo (P)",
-                         "fit_I(EX2 * AV)" = "(Prueba 2 (T) * Virtual (V)) estimada primera etapa",
-                         "I(EX2 * PL)" = "Prueba 2 (T) * Placebo (P)",
+  custom.coef.map = list("EX2" =  "T",
+                         "AV" = "V",
+                         "PL" = "P",
+                         "fit_I(EX2 * AV)" = "V * T",
+                         "I(EX2 * PL)" = "P * T",
                          "minutos_prueba" = "Minutos prueba",
                          "PBM" = "PBM",
                          "PUNTAJE_ADMISION_FINAL_FINAL" = "Puntaje de admisión",
                          "SEXOM" = "Sexo",
                          "PAPA_PERIODO_FINAL" = "Promedio académico",
-                         "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Cuarta, Quinta y Sexta matrícula",
-                         "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Septima, Octaba, Novena y Decima matrícula"),
+                         "Matriculas_recategorizadoNumero de matriculas (4, 5, 6)" = "Entre 4 y 6 matrículas",
+                         "Matriculas_recategorizadoNumero de matriculas (7, 8, 9, 10)" = "Más de 7 matrículas"),
   stars = c(0.01, 0.05, 0.1),
   include.adjrs = FALSE,
   include.aic = FALSE,
@@ -747,28 +749,156 @@ texreg(
   use.packages = FALSE
 )
 
-# 6.2 Randomización ----
+# 6.2 Test de randomización ----
 
 # Test de randomización para la regresion 1 de efectos fijos
-test_de_randomizacion(df_original = base_limpia, 
+t_rand1 = test_de_randomizacion(df_original = base_limpia, 
                       formula_estimacion = fe1_formula,
                       coef_interes = "I(EX2 * AV)",
                       estimacion_original = fe1,
-                      sample_size = 500)
+                      sample_size = 1000,
+                      seed = 1)
+
+# Número de coeficientes negativos significativos
+coef_signif_test_randomizacion(t_rand1$parametros, 0.01, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand1$parametros, 0.05, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand1$parametros, 0.1, coef_negativo = TRUE)
+
+# Número de coeficientes positivos significativos
+coef_signif_test_randomizacion(t_rand1$parametros, 0.01, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand1$parametros, 0.05, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand1$parametros, 0.1, coef_negativo = FALSE)
+
+g_rand1 = graficacion_histograma(t_rand1, 
+                                  p_value = 0.1,
+                                  x_label = "Coeficiente estimado", 
+                                  y_label_p_value = "P-value",
+                                  y_label_density = "Densidad",
+                                  bw = "nrd0", 
+                                  adjust = 1, 
+                                  kernel = "gaussian"); print(g_rand1)
+
+ggsave(file.path(figuras_directory, "test_randomizacion/test_randomizacion1.pdf"), 
+       plot = g_rand1,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
 
 # Test de randomización para la regresion 2 de efectos fijos
-suppressMessages(test_de_randomizacion(df_original = base_limpia, 
+t_rand2 = suppressMessages(test_de_randomizacion(df_original = base_limpia, 
                       formula_estimacion = fe6_formula,
                       coef_interes = "I(EX2 * AV)",
                       estimacion_original = fe6,
-                      sample_size = 500))
+                      sample_size = 1000,
+                      seed = 1))
+
+# Número de coeficientes negativos significativos
+coef_signif_test_randomizacion(t_rand2$parametros, 0.01, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand2$parametros, 0.05, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand2$parametros, 0.1, coef_negativo = TRUE)
+
+# Número de coeficientes positivos significativos
+coef_signif_test_randomizacion(t_rand2$parametros, 0.01, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand2$parametros, 0.05, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand2$parametros, 0.1, coef_negativo = FALSE)
+
+g_rand2 = graficacion_histograma(t_rand2, 
+                                 p_value = 0.1,
+                                 x_label = "Coeficiente estimado", 
+                                 y_label_p_value = "P-value",
+                                 y_label_density = "Densidad",
+                                 bw = "nrd0", 
+                                 adjust = 1, 
+                                 kernel = "gaussian"); print(g_rand2)
+
+ggsave(file.path(figuras_directory, "test_randomizacion/test_randomizacion2.pdf"), 
+       plot = g_rand2,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
 
 # Test de randomización para la regresion 3 de efectos fijos
-test_de_randomizacion(df_original = base_limpia, 
+t_rand3 = test_de_randomizacion(df_original = base_limpia, 
                       formula_estimacion = fe7_formula,
                       coef_interes = "I(EX2 * AV)",
                       estimacion_original = fe7,
-                      sample_size = 500)
+                      sample_size = 1000,
+                      seed = 1)
 
-# 6.3 Permutación ----
+# Número de coeficientes negativos significativos
+coef_signif_test_randomizacion(t_rand3$parametros, 0.01, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand3$parametros, 0.05, coef_negativo = TRUE)
+coef_signif_test_randomizacion(t_rand3$parametros, 0.1, coef_negativo = TRUE)
 
+# Número de coeficientes positivos significativos
+coef_signif_test_randomizacion(t_rand3$parametros, 0.01, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand3$parametros, 0.05, coef_negativo = FALSE)
+coef_signif_test_randomizacion(t_rand3$parametros, 0.1, coef_negativo = FALSE)
+
+g_rand3 = graficacion_histograma(t_rand3, 
+                                 p_value = 0.1,
+                                 x_label = "Coeficiente estimado", 
+                                 y_label_p_value = "P-value",
+                                 y_label_density = "Densidad",
+                                 bw = "nrd0", 
+                                 adjust = 1, 
+                                 kernel = "gaussian"); print(g_rand3)
+
+ggsave(file.path(figuras_directory, "test_randomizacion/test_randomizacion3.pdf"), 
+       plot = g_rand3,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
+
+# 6.3 Test de permutación ----
+
+# Test de permutación para la regresion 1 de efectos fijos
+t_perm1 = test_de_permutacion(df_original = base_limpia,
+                      formula_estimacion = fe1_formula,
+                      coef_interes = "I(EX2 * AV)",
+                      estimacion_original = fe1,
+                      seed = 1)
+
+g_perm1 = graficacion_CDF(t_perm1, 
+                           x_label = "Coeficiente estimado",
+                           y_label = "Función de distribución acumulada empírica"); print(g_perm1)
+
+ggsave(file.path(figuras_directory, "test_permutacion/test_permutacion1.pdf"), 
+       plot = g_perm1,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
+
+# Test de permutación para la regresion 2 de efectos fijos
+t_perm2 = suppressMessages(test_de_permutacion(df_original = base_limpia,
+                    formula_estimacion = fe6_formula,
+                    coef_interes = "I(EX2 * AV)",
+                    estimacion_original = fe6,
+                    seed = 1))
+
+g_perm2 = graficacion_CDF(t_perm2, 
+                          x_label = "Coeficiente estimado",
+                          y_label = "Función de distribución acumulada empírica"); print(g_perm2)
+
+ggsave(file.path(figuras_directory, "test_permutacion/test_permutacion2.pdf"), 
+       plot = g_perm2,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
+
+# Test de permutación para la regresion 3 de efectos fijos
+t_perm3 = test_de_permutacion(df_original = base_limpia,
+                    formula_estimacion = fe7_formula,
+                    coef_interes = "I(EX2 * AV)",
+                    estimacion_original = fe7,
+                    seed = 1)
+
+g_perm3 = graficacion_CDF(t_perm3, 
+                          x_label = "Coeficiente estimado",
+                          y_label = "Función de distribución acumulada empírica"); print(g_perm3)
+
+ggsave(file.path(figuras_directory, "test_permutacion/test_permutacion3.pdf"), 
+       plot = g_perm3,
+       width = 5.95,
+       height = 5.66,
+       dpi = 300)
